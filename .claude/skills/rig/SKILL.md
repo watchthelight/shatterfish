@@ -57,7 +57,7 @@ Details are in `docs/methodology.md`, "The direction check".
 ## Steps
 
 1. **Is the rig built?** If `shatterfish/rig/src/main/java/org/shatterfish/rig/` contains no
-   `RigMain.java`, report that the rig is E3 work
+   `Runner.java` (the `:rig:run` entry point; `Direction.java` is `:rig:direction`), report that the rig is E3 work
    (https://github.com/watchthelight/shatterfish/milestone/4) and stop.
 2. **Resolve the request.** Default: `--brain <current brain> --against <last published baseline> --seeds smoke`
    for a quick look; `--seeds standard` for numbers that will be published. Ask nothing; state

@@ -138,8 +138,9 @@ Pre-mortem: the user renames or deletes a referenced skill and a project skill s
 ## 8. CI on a self-hosted runner
 
 The `build` workflow can run on the owner's machine instead of GitHub's runners. GitHub's free
-runners have four cores, so CI splits the build into four module jobs and still takes about 17
-minutes. The owner's machine has 24 threads, and one `./gradlew build --parallel` there does the
+runners have four cores, so CI splits the build into four module jobs. A pull request build
+took 42.8 minutes at the median (measured 2026-11-12); `:rig:check` alone is 35 to 47 minutes and
+the harness tests 12 to 16. The owner's machine has 24 threads, and one `./gradlew build --parallel` there does the
 same work in one Gradle JVM.
 
 - **Switch:** the repository variable `SF_RUNNER`. When it is `self-hosted`, the job
@@ -161,7 +162,44 @@ same work in one Gradle JVM.
   `Start-Process ~\.local\opt\actions-runner-N\run.cmd -WindowStyle Hidden`.
 - **Measured 2026-10-25, and why it is off:** with agents and Rig runs busy on the same machine,
   the self-hosted build took 19.5 minutes (four test forks per module) and 25 minutes (six),
-  against about 17.5 on GitHub. The machine's cores are already in use, so CI there competes
+  against about 17.5 on GitHub then. The machine's cores are already in use, so CI there competes
   with the work it is checking; GitHub's runners are extra capacity. The variable is unset and the
   runners are stopped. Turn it on for a stretch when the machine is otherwise idle.
 - **Other workflows** (`docs`, `nightly`, `replay`) still run on GitHub.
+
+
+## 9. Operations (`tools/`)
+
+The scripts that keep the owner's machine and the merge queue running live in `tools/`. They
+need Git Bash, `gh`, `jq`, `uv` and PowerShell. Their state (locks, the cap file, logs, measurement
+output) goes in the folder named by the environment variable `SF_STATE`, which defaults to
+`$TEMP/shatterfish-ops`. Nothing in them depends on a session's scratch folder.
+
+- **`merge-queue.sh <PR>[:<sprint key>] ...`** merges pull requests one at a time. Each waits for
+  the PR's checks, takes a merge lock, merges `--no-ff` as `watchthelight` in the worktree
+  `.claude/worktrees/merge` (created if missing), and runs the local gate: `assemble`,
+  `testClasses`, `:api:test :brain:test :overlay:test` and `mkdocs build --strict`. A failing
+  test class is retried once alone, for at most three classes. The harness and rig tests are not
+  repeated here; they ran in the PR's CI and run again on main. A merge makes **one push**:
+  `tools/after-merge.py --phase files` edits sprint-status.yaml before it, the queue commits that
+  as "Bookkeeping after #N", and one `git push` carries both commits, so main starts one build.
+  After the push, `--phase github --close` waits for GitHub to mark the PR merged (up to five
+  minutes) and checks or closes its issues.
+- **`gradle-gate.sh`** blocks until a new Gradle job is welcome: fewer Gradle wrapper JVMs than
+  the number in `$SF_STATE/gw.cap` (2 if the file is absent; read on every check, so changing it
+  needs no restart), fewer than 16 `java.exe` in all, at least 8 GB of RAM free, and commit charge
+  under 72%. One waiter checks at a time, and the lock stays 180 seconds after the gate opens so
+  the new job shows up in the next check.
+- **`throttle.ps1`** keeps every `java.exe` at Idle priority on all logical cores, so the desktop
+  stays usable while the rig runs.
+- **`watchdog.ps1`** stops every `java.exe` and logs to `$SF_STATE/watchdog.log` when there are
+  more than 32 of them, commit charge is over 85%, or C: has under 8 GB free. It then waits two
+  minutes. Run both PowerShell scripts hidden and in the background; they end with the logon.
+- **`measure.sh <label> [--baseline <git-ref|folder>]`** is the PR measurement: `:rig:direction`
+  on the `standard` set, `--class ALL --first 40 --jobs 4`, at salts 1000 and 3000, each slice
+  behind the gate, then `tools/pool-direction.py` pools the two slices into
+  `$SF_STATE/measure/<label>/pooled.md`. It passes `--out` as a Windows-form path (`cygpath -m`),
+  because an MSYS `/c/...` path makes Java write under `C:\c\`. It refuses the `goo`, `holdout`
+  and `tengu` sets. Means and medians are not pooled; read them in each slice's `direction.md`.
+
+Machine limits, and why each threshold has its number, are in the comments at the top of each script.

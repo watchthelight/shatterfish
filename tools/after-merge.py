@@ -2,6 +2,8 @@
 """The bookkeeping after a pull request is merged, in one command.
 
     python tools/after-merge.py <PR> [--key <sprint key>] [--status done] [--close] [--dry-run]
+    python tools/after-merge.py <PR> [--key K] --phase files     # before the push: file edits and checks only
+    python tools/after-merge.py <PR> --phase github --close      # after the push: issue states and closing
     python tools/after-merge.py --self-test
 
 It reads the merged PR from GitHub (always `-R watchthelight/shatterfish`, never the
@@ -17,6 +19,13 @@ upstream remote) and then:
   `./gradlew :codex:generate` must show no drift.
 
 It changes local files only; commit them as usual. Nothing is pushed.
+
+The default phase, `all`, needs the PR to be merged on GitHub already. `tools/merge-queue.sh`
+splits the work in two so a merge is one push: `--phase files` accepts a PR that is still open
+(the merge commit exists only locally), edits sprint-status.yaml and runs the README and codex
+checks; the queue commits that and pushes it together with the merge commit. Then
+`--phase github` waits for nothing itself, requires the PR to be merged, and checks or closes
+the issues. Together the two phases do what `all` does.
 """
 import argparse
 import datetime
@@ -73,6 +82,8 @@ def main():
     parser.add_argument("--status", default="done")
     parser.add_argument("--close", action="store_true", help="close issues the merge left open")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--phase", choices=("all", "files", "github"), default="all",
+                        help="files: before the push, PR may still be open; github: after it; all: both, PR merged")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
@@ -83,14 +94,17 @@ def main():
 
     pr = json.loads(gh("pr", "view", str(args.pr), "--json",
                        "number,title,state,headRefName,mergeCommit,closingIssuesReferences,files"))
-    if pr["state"] != "MERGED":
+    allowed = ("OPEN", "MERGED") if args.phase == "files" else ("MERGED",)
+    if pr["state"] not in allowed:
         sys.exit(f"#{pr['number']} is {pr['state']}, not merged; nothing to do")
     sha = (pr.get("mergeCommit") or {}).get("oid", "")[:9]
-    print(f"#{pr['number']} {pr['title']} (merged as {sha})")
+    print(f"#{pr['number']} {pr['title']} (" + (f"merged as {sha}" if sha else "merge not pushed yet") + ")")
 
     branch = pr["headRefName"]
     key = args.key or (branch[len("story/"):] if branch.startswith("story/") else None)
-    if key:
+    if args.phase == "github":
+        pass
+    elif key:
         today = datetime.date.today().isoformat()
         text = SPRINT.read_text(encoding="utf-8")
         try:
@@ -105,13 +119,15 @@ def main():
         print(f"sprint-status: not a story branch ({branch}) and no --key; unchanged")
 
     issues = [i["number"] for i in pr.get("closingIssuesReferences") or []]
-    for number in issues:
+    for number in issues if args.phase != "files" else []:
         state = json.loads(gh("issue", "view", str(number), "--json", "state"))["state"]
         if state == "OPEN" and args.close and not args.dry_run:
             gh("issue", "close", str(number), "-c", f"Fixed by #{pr['number']} ({sha}).")
             state = "CLOSED (closed now)"
         print(f"issue #{number}: {state}")
 
+    if args.phase == "github":
+        return
     readme = README.read_text(encoding="utf-8")
     refs = [pr["number"], *issues]
     if any(re.search(rf"#{n}\b", readme) for n in refs):
