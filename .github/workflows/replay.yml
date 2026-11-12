@@ -38,6 +38,7 @@ jobs:
   replay:
     name: replay the reference Run on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       # Every platform is reported. `fail-fast` would tell us Windows disagrees and leave us
       # guessing whether Linux does too, which is half of the answer we came for.
