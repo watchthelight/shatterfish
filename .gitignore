@@ -50,3 +50,7 @@ where.txt
 
 # Overlay Runs launched without --out (story 5.1, :overlay:launch)
 overlay-runs/
+
+# Build and scratch output dropped at the repository root (none is tracked)
+/*.log
+/scratch-*

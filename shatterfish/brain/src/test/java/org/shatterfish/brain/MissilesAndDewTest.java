@@ -68,7 +68,7 @@ class MissilesAndDewTest {
             Map.of("pickup.missile_reach", 20L, "pickup.dew_skin_below", 20L, "ranged.fetch_steps", 2L,
                     "ranged.min_damage_per_mille", 1500L, "descend.trample_reach", 10L, "explore.grass_skin_below", 20L));
 
-    /** A Brain with the levers as committed (off), the control that shows each test below discriminates. */
+    /** A Brain with the levers as committed (all off but ranged.fetch_steps, story 10.49), the control that shows each test below discriminates. */
     private static Brain off() {
         return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
     }
@@ -165,6 +165,28 @@ class MissilesAndDewTest {
         Observation near = withHeaps(corridor(40, 4, 9, stones(2)), heap(at(40, 6), "throwing stone"));
         Belief seen = brain.update(near, belief);
         assertNotEquals("fetch: throwing stone 2", decide(brain, seen, near).decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("as committed, with no tunables given, a stone two steps away in a fight is fetched; with ranged.fetch_steps at 0 it is not (issue #412)")
+    void the_committed_playbook_fetches_a_near_stone() {
+        Observation first = corridor(40, 2, 6, stones(3));
+        Observation second = withHeaps(corridor(40, 4, 30, stones(2)), heap(at(40, 6), "throwing stone"));
+
+        Brain committed = off();
+        Belief belief = committed.update(first, null);
+        belief = committed.handed(first, belief, decide(committed, belief, first));
+        belief = committed.update(second, belief);
+        Brain.Decided fetch = decide(committed, belief, second);
+        assertEquals("fetch: throwing stone 2", fetch.decision().chosen().why(), fetch.decision().toString());
+
+        // The control: the same Brain with the lever set to 0 leaves the stone.
+        Brain none = new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, org.shatterfish.api.Tunables.with(
+                org.shatterfish.api.Playbook.reference("none"), Map.of("ranged.fetch_steps", 0L)), 9L, Brain.Model.BASELINE);
+        Belief other = none.update(first, null);
+        other = none.handed(first, other, decide(none, other, first));
+        other = none.update(second, other);
+        assertNotEquals("fetch: throwing stone 2", decide(none, other, second).decision().chosen().why());
     }
 
     @Test

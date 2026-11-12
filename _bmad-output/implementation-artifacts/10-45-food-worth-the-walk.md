@@ -1,6 +1,6 @@
 # Story 10.45: food is worth the turns it buys
 
-Status: review. Issue #448 (Closes). Follows story 10.44 (PR #450, the fallback rest).
+Status: done, merged as PR #457 on 2026-11-09 (results: docs/results/2026-11-09-10-45-food-worth-the-walk.md). Issue #448 (Closes). Follows story 10.44 (PR #450, the fallback rest).
 
 ## Diagnosis
 

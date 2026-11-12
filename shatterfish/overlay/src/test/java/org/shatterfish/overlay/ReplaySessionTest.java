@@ -175,7 +175,9 @@ class ReplaySessionTest {
             RunLog.End recorded = endOf(shortLog);
             assertEquals(recorded.outcome().cause(), session.run.outcome().cause().name(),
                     "the recorded outcome: " + session.run.outcome());
-            assertEquals(recorded.outcome().turns(), session.run.outcome().turns() * 1000L, "the log counts turns in thousandths");
+            // The log counts thousandths and the Run's outcome whole turns rounded down (RunLoop.turns); the thousandths themselves
+            // are checked wait by wait and at the end by the follower. A Run cut off by the cap on a half turn ends at 500.5.
+            assertEquals(recorded.outcome().turns() / 1000L, (long) session.run.outcome().turns(), "the log counts turns in thousandths, the session whole turns");
             assertEquals(recorded.outcome().depth(), session.run.outcome().depth());
             System.out.println("replay session: " + session.loaded.waits() + " waits, ended " + session.run.outcome().cause()
                     + " on floor " + session.run.outcome().depth() + " after " + session.run.outcome().turns() + " turns");

@@ -41,9 +41,12 @@ line it moved to if upstream inserted above it; where it is gone, changed, or in
 place, the row is flipped to needs-review and its link is left at `v3.3.8`, where it was true. A
 block too generic to identify itself, under twenty-five characters of text, is never matched either
 way: `}` is `}` everywhere, and a tag that moved the rule's code and left something equally plain
-behind would otherwise pass. Of the 315 rows with citations, **219 resolve to the same code** and
-**94 are waiting to be re-read**; two rows cite in plain text rather than as links and the check
-cannot see them. Most of the 219 moved to new line numbers, and three were re-read by hand rather
+behind would otherwise pass. Of the 315 rows with citations at that upgrade, **219 resolved to the same code** and
+**94 were left waiting to be re-read**; two rows cite in plain text rather than as links and the check
+cannot see them. Counting the pages on 2026-11-12 (the 94 was counted at the upgrade and has not been kept
+current, so the difference is not itemised), **76 rows** carry `needs-review` in their status column (game loop 16, buffs 9, save and score 9,
+visibility 9, combat 8, UI 8, levels 7, generation 3, identification 3, RNG 3, text and assets 1;
+the upgrades and pick-up pages have none). Most of the 219 moved to new line numbers, and three were re-read by hand rather
 than by the check, because they are the blob-drawing rules upstream itself changed at this tag;
 their Since column says so.
 
@@ -67,7 +70,7 @@ records where the code contradicted the bootstrap prompt.
 | [Game loop and hero input](game-loop.md) | 45 | Actor scheduling, the actor thread, how a hero turn starts and ends, sprite-gated turn resolution, windows and scene switches. |
 | [Visibility](visibility.md) | 32 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
 | [Items and identification](identification.md) | 46 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
-| [Mobs, AI and combat](combat.md) | 60 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
+| [Mobs, AI and combat](combat.md) | 61 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
 | [Level generation and floors](levels.md) | 39 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
 | [Item generation and guarantees](generation.md) | 27 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
 | [Upgrades](upgrades.md) | 10 | What a scroll of upgrade adds to a weapon, an armour, a wand and a ring, the strength it asks, and what reading it onto an item whose level or curse is not shown costs. |

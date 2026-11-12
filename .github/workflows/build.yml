@@ -7,7 +7,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a newer push to a pull request replaces its running build. On main every push is kept:
+  # two quick pushes (a merge and its bookkeeping) used to cancel the first one's build.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -22,6 +24,7 @@ jobs:
     name: build (self-hosted)
     if: ${{ vars.SF_RUNNER == 'self-hosted' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, shatterfish]
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -71,6 +74,7 @@ jobs:
     name: ${{ matrix.name }}
     if: ${{ !(vars.SF_RUNNER == 'self-hosted' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -138,6 +142,7 @@ jobs:
   build:
     name: build + test (ubuntu, JDK 21)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs: [local, test]
     if: always()
     steps:

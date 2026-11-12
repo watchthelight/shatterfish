@@ -178,7 +178,7 @@ public final class Tunables {
             "most steps walked, on a calm screen, to a missile the hero threw: 0 leaves them where they fell");
     public static final Tunable PICKUP_DEW_SKIN_BELOW = policy("pickup.dew_skin_below", "Pickup.DEW_SKIN_BELOW", 0, 0, 20, 4,
             "a dewdrop is taken at full health while the waterskin shows less than this of its 20: 0 refuses it as before");
-    public static final Tunable RANGED_FETCH_STEPS = policy("ranged.fetch_steps", "Ranged.FETCH_STEPS", 0, 0, 4, 1,
+    public static final Tunable RANGED_FETCH_STEPS = policy("ranged.fetch_steps", "Ranged.FETCH_STEPS", 2, 0, 4, 1,
             "most steps walked in a fight, no enemy beside the hero, to a missile it threw: 0 never leaves a fight for one");
     public static final Tunable RANGED_MIN_DAMAGE = policy("ranged.min_damage_per_mille", "Ranged.MIN_DAMAGE_PER_MILLE", 0, 0, 6000, 250,
             "least damage a throw is expected to do, in thousandths of a hit point, for it to be worth the missile: 0 throws as before");

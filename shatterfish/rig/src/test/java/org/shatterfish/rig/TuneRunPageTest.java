@@ -89,6 +89,14 @@ class TuneRunPageTest {
                 + " iterations; " + positive + " positive."), "the summary line");
     }
 
+    /**
+     * The default a number had when the run was played (2026-11-07). The page records that run, so a default changed since
+     * (ranged.fetch_steps, 0 to 2 in story 10.49) is read as it was, not as it is.
+     */
+    static long defaultAtRun(Tunables.Tunable t) {
+        return "ranged.fetch_steps".equals(t.name()) ? 0L : t.def();
+    }
+
     static String signed(double value, int places) {
         String text = f(value, places);
         return value > 0 && !text.startsWith("-") ? "+" + text : text;
@@ -107,15 +115,16 @@ class TuneRunPageTest {
         int moved = 0;
         for (Tunables.Tunable t : registry) {
             long value = Math.max(t.min(), Math.min(t.max(), Math.round(Double.parseDouble(next.get(t.name())))));
-            moved += value != t.def() ? 1 : 0;
-            String line = "| `" + t.name() + "` | " + t.def() + " | " + value + " | " + signed((value - t.def()) / (double) t.step(), 2) + " |";
+            long was = defaultAtRun(t);
+            moved += value != was ? 1 : 0;
+            String line = "| `" + t.name() + "` | " + was + " | " + value + " | " + signed((value - was) / (double) t.step(), 2) + " |";
             assertTrue(page.contains(line + "\n"), "the page has the row " + line);
         }
         assertTrue(page.contains(moved + " of " + registry.size() + " numbers moved."), "the moved count: " + moved);
         String diff = read(FOLDER.resolve("candidate.diff.txt"));
         for (Tunables.Tunable t : registry) {
             long value = Math.max(t.min(), Math.min(t.max(), Math.round(Double.parseDouble(next.get(t.name())))));
-            if (value != t.def()) {
+            if (value != defaultAtRun(t)) {
                 assertTrue(diff.contains(t.name() + "=" + value), "the --tunables text states " + t.name() + "=" + value);
             }
         }

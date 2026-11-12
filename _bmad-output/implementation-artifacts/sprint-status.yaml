@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-11-09
+last_updated: 2026-11-12
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -161,7 +161,7 @@ development_status:
 
   epic-9: backlog
   epic-9-retrospective: optional
-  epic-10: backlog  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
+  epic-10: in-progress  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
   10-1-the-boss-staircase-in-the-direction-table: done  # issue #347
   10-2-the-killer-on-every-death: done  # issue #348
   10-3-the-all-class-direction-table-and-the-think-time-column: done  # issue #349
@@ -188,8 +188,8 @@ development_status:
   10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: done  # issue #370
   10-25-the-warrior-plays-its-kit: backlog  # issue #371
-  10-26-the-mage-plays-its-kit: backlog  # issue #372
-  10-27-the-rogue-plays-its-kit: backlog  # issue #373
+  10-26-the-mage-plays-its-kit: done  # issue #372 (closed not planned); dropped, no code: on an 80-Run Mage slice (reach d5 50 of 80, Goo kills 39 of 80) four variants all lost reach d5 or Goo kills (see the issue comments); the Mage already zaps, and the open question is generic upgrade allocation, not a kit gap
+  10-27-the-rogue-plays-its-kit: done  # issue #373; the zap Policy puts the cloak of shadows on when an awake enemy that one blow would not kill is within 2 cells; Rogue reach d5 39 to 54 of 80, Goo kills 24 to 47, pooled 293 to 308 and 241 to 264, other classes identical; see docs/results/2026-11-09-10-27-the-rogue-plays-its-kit.md
   10-28-the-huntress-plays-its-kit: done  # issue #374; the shoot Policy also fires the Spirit Bow when cornered (a crab it cannot flee); Huntress reach d5 48 to 53 of 80, Goo kills 39 to 40, pooled 293 to 298 and 241 to 242, other classes identical; see docs/results/2026-11-09-10-28-the-huntress-plays-its-kit.md
   10-29-the-duelist-plays-its-kit: backlog  # issue #375
   10-30-the-cleric-plays-its-kit: done  # issue #376; the zap Policy casts Guiding Light from the holy tome; Cleric reach d5 29 to 41 of 80, Goo kills 23 to 33, pooled 276 to 288 and 226 to 236, other classes identical; Holy Weapon and Holy Ward need a spell choice in the Prompt (ADR), see docs/results/2026-11-09-10-30-the-cleric-plays-its-kit.md
@@ -207,8 +207,9 @@ development_status:
   10-41-the-armour-that-gets-the-scrolls: done  # issue #443; added by 10.7; no PR and no code changed: holding scrolls of upgrade until depth 4 was dropped (worse pooled on both slices, Mage lost 10 and 12 reach d5), see the close-out comment on the issue
   10-42-the-deaths-before-goo: done  # issue #445; added by 10.7; throw rule kept on the keep rule (52 better, 39 worse; E3 undecided), see docs/results/2026-11-08-10-42-the-deaths-before-goo.md
   10-46-why-fatal-fights-start-hurt: done  # issue #453; no rule built, 60% of hurt starts are the food clock, see docs/results/2026-11-08-10-46-why-fatal-fights-start-hurt.md
-  10-45-food-worth-the-walk: done  # issue #448 (Closes); PR #457: food is worth the turns it buys; reach d5 +18 of 480, bosses +24
+  10-45-food-worth-the-walk: done  # issue #448 (PR #457 says Closes #448, the 10.44 issue; no separate 10.45 issue exists); PR #457 merged 2026-11-09: food is worth the turns it buys; reach d5 +18 of 480, bosses +24; see docs/results/2026-11-09-10-45-food-worth-the-walk.md
   10-48-the-pack-fight: done  # issue #458; Pack Policy throws known flame and frost and zaps known attack wands at a strong enemy; reach d5 276 to 278, Goo kills 226 to 227 of 480, worst class -4; see docs/results/2026-11-09-10-48-the-pack-fight.md
   10-47-wear-and-wield-better-gear: done  # issue #459; armour priced by the game's roll and strength rule kept (reach d5 276 to 280, Goo 226 to 229); armour_pick HEAVIEST inert, spare weapon dropped, see docs/results/2026-11-09-10-47-wear-and-wield-better-gear.md
   10-51-drink-the-waterskin: in-progress  # issue #469; drink Policy and descent drink from the waterskin
+  10-49-missiles-dew-pickup-worth: done  # issue #412 (Closes); ranged.fetch_steps 2 kept (reach d5 280 to 285, Goo 229 to 241 of 480); the other eight levers dropped at full size, see docs/results/2026-11-09-10-49-missiles-dew-pickup-worth.md
   epic-10-retrospective: optional
