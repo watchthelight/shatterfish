@@ -267,6 +267,11 @@ final class Descend implements Policy {
         if (!rests(observation, memory, bosses, tunables)) {
             return null;
         }
+        // The waterskin first (story 10.51): one turn and no hunger, where a rest is many turns of both.
+        Action drink = Dew.drink(observation, offered);
+        if (drink != null && Drink.worth(observation.hero(), Dew.gain(observation), tunables)) {
+            return new RunLog.Choice(drink, Policies.CERTAIN, "drink: descent +" + Dew.gain(observation));
+        }
         for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
             if (offered.contains(rest)) {
                 return new RunLog.Choice(rest, Policies.CERTAIN, "rest: descent");

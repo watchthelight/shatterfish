@@ -210,5 +210,6 @@ development_status:
   10-45-food-worth-the-walk: done  # issue #448 (PR #457 says Closes #448, the 10.44 issue; no separate 10.45 issue exists); PR #457 merged 2026-11-09: food is worth the turns it buys; reach d5 +18 of 480, bosses +24; see docs/results/2026-11-09-10-45-food-worth-the-walk.md
   10-48-the-pack-fight: done  # issue #458; Pack Policy throws known flame and frost and zaps known attack wands at a strong enemy; reach d5 276 to 278, Goo kills 226 to 227 of 480, worst class -4; see docs/results/2026-11-09-10-48-the-pack-fight.md
   10-47-wear-and-wield-better-gear: done  # issue #459; armour priced by the game's roll and strength rule kept (reach d5 276 to 280, Goo 226 to 229); armour_pick HEAVIEST inert, spare weapon dropped, see docs/results/2026-11-09-10-47-wear-and-wield-better-gear.md
+  10-51-drink-the-waterskin: review  # issue #469; drink Policy and descent drink from the waterskin; reach d5 290 to 300, Goo kills 243 to 256 of 480, worst class -2; see docs/results/2026-11-12-10-51-drink-the-waterskin.md
   10-49-missiles-dew-pickup-worth: done  # issue #412 (Closes); ranged.fetch_steps 2 kept (reach d5 280 to 285, Goo 229 to 241 of 480); the other eight levers dropped at full size, see docs/results/2026-11-09-10-49-missiles-dew-pickup-worth.md
   epic-10-retrospective: optional

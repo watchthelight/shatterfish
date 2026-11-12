@@ -51,6 +51,37 @@ final class Dew {
         return volume >= 0 && volume < below && volume < CAPACITY;
     }
 
+    /**
+     * What a drink of the skin heals now, in hit points: it takes the drops that bring the hero to full health, at least
+     * one and no more than the skin holds, and each drop heals 5% of the maximum, the whole rounded
+     * (Waterskin.java:87-134, Dewdrop.java:83-84). 0 with no skin, an empty one, or a hero at full health. The Vial of Blood
+     * and the Shielding Dew talent change the drops taken and are not modelled; they only make the real drink larger.
+     */
+    static int gain(Observation observation) {
+        int volume = volume(observation);
+        int ht = observation.hero().ht();
+        int missing = ht - observation.hero().hp();
+        if (volume <= 0 || missing <= 0) {
+            return 0;
+        }
+        int drops = (int) Math.max(1, Math.min(volume, Math.ceil(missing / (0.05f * ht) - 0.01f)));
+        return Math.min(missing, Math.round(ht * 0.05f * drops));
+    }
+
+    /** The action that drinks the skin, when the screen offers it, or null. */
+    static org.shatterfish.api.Action drink(Observation observation, java.util.List<org.shatterfish.api.Action> offered) {
+        java.util.List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.name().equals(WATERSKIN)) {
+                org.shatterfish.api.Action drink = new org.shatterfish.api.Action.UseItem(
+                        new org.shatterfish.api.ItemRef(index, item.name(), item.quantity()), "DRINK");
+                return offered.contains(drink) ? drink : null;
+            }
+        }
+        return null;
+    }
+
     /** Whether {@code tile} is tall grass, which a step onto tramples (HighGrass.java:59-77). */
     static boolean tall(Tile tile) {
         return tile == Tile.HIGH_GRASS;
