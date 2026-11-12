@@ -59,4 +59,8 @@ merge-base `54fc50eaf`, with the epic's keep rule.
 
 ## Outcome
 
-(filled in after the measure)
+Kept on the first variant, no second variant needed. Two ALL-40 slices (480 Runs pooled, 240 per slice) against baseline `54fc50eaf`: reach depth 5
+290 to 300, reach depth 6 236 to 249, reach depth 8 32 to 45, Goo kills 243 to 256. Worst class is 2 worse (Mage and Duelist in Goo kills); no class
+is 8 or more worse. The rule drank about 1.9 times per Run (calm 596, fight 191, descent 112), never below the 15% gain floor. Numbers and tables:
+`docs/results/2026-11-12-10-51-drink-the-waterskin.md`. The harness, `Observer` and executor are unchanged. ADR-0019: without the Brain
+registration, 3 of the 12 `DrinkPolicyTest` tests fail.
